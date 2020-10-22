@@ -16,6 +16,18 @@ variable "principals_readonly_access" {
   default     = []
 }
 
+variable "orgpaths_full_access" {
+  type        = list(string)
+  description = "OrganizationalUnit paths to provide with full access to the ECR"
+  default     = []
+}
+
+variable "orgpaths_readonly_access" {
+  type        = list(string)
+  description = "OrganizationalUnit paths to provide with readonly access to the ECR"
+  default     = []
+}
+
 variable "scan_images_on_push" {
   type        = bool
   description = "Indicates whether images are scanned after being pushed to the repository (true) or not (false)"

@@ -1,7 +1,9 @@
 locals {
   principals_readonly_access_non_empty = length(var.principals_readonly_access) > 0 ? true : false
   principals_full_access_non_empty     = length(var.principals_full_access) > 0 ? true : false
-  ecr_need_policy                      = length(var.principals_full_access) + length(var.principals_readonly_access) > 0 ? true : false
+  orgpaths_readonly_access_non_empty   = length(var.orgpaths_readonly_access) > 0 ? true : false
+  orgpaths_full_access_non_empty       = length(var.orgpaths_full_access) > 0 ? true : false
+  ecr_need_policy                      = length(var.principals_full_access) + length(var.principals_readonly_access) + length(var.orgpaths_readonly_access) + length(var.orgpaths_full_access) > 0 ? true : false
 }
 
 locals {
@@ -87,56 +89,104 @@ data "aws_iam_policy_document" "empty" {
   count = module.this.enabled ? 1 : 0
 }
 
-data "aws_iam_policy_document" "resource_readonly_access" {
+data "aws_iam_policy_document" "resource_access" {
   count = module.this.enabled ? 1 : 0
 
-  statement {
-    sid    = "ReadonlyAccess"
-    effect = "Allow"
+  dynamic "statement" {
+    for_each = [local.principals_readonly_access_non_empty ? [var.principals_readonly_access] : []]
 
-    principals {
-      type = "AWS"
+    content {
+      sid    = "ReadonlyAccess"
+      effect = "Allow"
 
-      identifiers = var.principals_readonly_access
+      principals {
+        type        = "AWS"
+        identifiers = statement.value
+      }
+
+      actions = [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:DescribeImageScanFindings",
+        "ecr:DescribeImages",
+        "ecr:DescribeRepositories",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:GetLifecyclePolicy",
+        "ecr:GetLifecyclePolicyPreview",
+        "ecr:GetRepositoryPolicy",
+        "ecr:ListImages",
+        "ecr:ListTagsForResource",
+      ]
     }
-
-    actions = [
-      "ecr:BatchCheckLayerAvailability",
-      "ecr:BatchGetImage",
-      "ecr:DescribeImageScanFindings",
-      "ecr:DescribeImages",
-      "ecr:DescribeRepositories",
-      "ecr:GetDownloadUrlForLayer",
-      "ecr:GetLifecyclePolicy",
-      "ecr:GetLifecyclePolicyPreview",
-      "ecr:GetRepositoryPolicy",
-      "ecr:ListImages",
-      "ecr:ListTagsForResource",
-    ]
   }
-}
+  dynamic "statement" {
+    for_each = [local.principals_full_access_non_empty ? [var.principals_full_access] : []]
 
-data "aws_iam_policy_document" "resource_full_access" {
-  count = module.this.enabled ? 1 : 0
+    content {
+      sid    = "FullAccess"
+      effect = "Allow"
 
-  statement {
-    sid    = "FullAccess"
-    effect = "Allow"
+      principals {
+        type = "AWS"
 
-    principals {
-      type = "AWS"
+        identifiers = statement.value
+      }
 
-      identifiers = var.principals_full_access
+      actions = ["ecr:*"]
     }
 
-    actions = ["ecr:*"]
+  }
+  dynamic "statement" {
+    for_each = [local.orgpaths_readonly_access_non_empty ? [var.orgpaths_readonly_access] : []]
+
+    content {
+      sid    = "ReadonlyAccessForOrganizations"
+      effect = "Allow"
+
+      condition {
+        test     = "ForAnyValue:StringLike"
+        variable = "aws:PrincipalOrgPaths"
+        values   = statement.value
+      }
+
+      actions = [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:DescribeImageScanFindings",
+        "ecr:DescribeImages",
+        "ecr:DescribeRepositories",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:GetLifecyclePolicy",
+        "ecr:GetLifecyclePolicyPreview",
+        "ecr:GetRepositoryPolicy",
+        "ecr:ListImages",
+        "ecr:ListTagsForResource",
+      ]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = [local.orgpaths_full_access_non_empty ? [var.orgpaths_full_access] : []]
+
+    content {
+      sid    = "FullAccessForOrganizations"
+      effect = "Allow"
+
+      condition {
+        test     = "ForAnyValue:StringLike"
+        variable = "aws:PrincipalOrgPaths"
+        values   = statement.value
+      }
+
+      actions = ["ecr:*"]
+    }
   }
 }
 
 data "aws_iam_policy_document" "resource" {
   count         = module.this.enabled ? 1 : 0
-  source_json   = local.principals_readonly_access_non_empty ? join("", [data.aws_iam_policy_document.resource_readonly_access[0].json]) : join("", [data.aws_iam_policy_document.empty[0].json])
-  override_json = local.principals_full_access_non_empty ? join("", [data.aws_iam_policy_document.resource_full_access[0].json]) : join("", [data.aws_iam_policy_document.empty[0].json])
+  source_json   = join("", data.aws_iam_policy_document.empty[0].json)
+  override_json = data.aws_iam_policy_document.resource_access[0].json
 }
 
 resource "aws_ecr_repository_policy" "name" {
