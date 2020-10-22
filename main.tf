@@ -93,7 +93,7 @@ data "aws_iam_policy_document" "resource_access" {
   count = module.this.enabled ? 1 : 0
 
   dynamic "statement" {
-    for_each = [local.principals_readonly_access_non_empty ? [var.principals_readonly_access] : []]
+    for_each = local.principals_readonly_access_non_empty ? {entries => var.principals_readonly_access} : {}
 
     content {
       sid    = "ReadonlyAccess"
@@ -120,7 +120,7 @@ data "aws_iam_policy_document" "resource_access" {
     }
   }
   dynamic "statement" {
-    for_each = [local.principals_full_access_non_empty ? [var.principals_full_access] : []]
+    for_each = local.principals_full_access_non_empty ? {entries => var.principals_full_access} : {}
 
     content {
       sid    = "FullAccess"
@@ -137,7 +137,7 @@ data "aws_iam_policy_document" "resource_access" {
 
   }
   dynamic "statement" {
-    for_each = [local.orgpaths_readonly_access_non_empty ? [var.orgpaths_readonly_access] : []]
+    for_each = local.orgpaths_readonly_access_non_empty ? {entries => var.orgpaths_readonly_access} : {}
 
     content {
       sid    = "ReadonlyAccessForOrganizations"
@@ -166,7 +166,7 @@ data "aws_iam_policy_document" "resource_access" {
   }
 
   dynamic "statement" {
-    for_each = [local.orgpaths_full_access_non_empty ? [var.orgpaths_full_access] : []]
+    for_each = local.orgpaths_full_access_non_empty ? {entries => var.orgpaths_full_access} : {}
 
     content {
       sid    = "FullAccessForOrganizations"
